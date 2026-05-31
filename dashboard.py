@@ -111,12 +111,13 @@ if opcion == "1":
         
         with col_tabla:
             st.subheader("Vista Previa" if idioma=="Español" else "Data Preview")
-            st.dataframe(df.head(50), use_container_width=True)
+            # Cambiado a `width="stretch"` según recomendación de Streamlit
+            st.dataframe(df.head(50), width="stretch")
             st.caption("🔍 **Interpretación:** Muestra de los primeros 50 registros. Se valida la correcta tipificación de variables (int, float, object)." if idioma=="Español" else "🔍 **Interpretation:** Sample of the first 50 records. Validates correct variable typing (int, float, object).")
             
         with col_stats:
             st.subheader("Estadística Descriptiva" if idioma=="Español" else "Descriptive Statistics")
-            st.dataframe(df.describe(), use_container_width=True)
+            st.dataframe(df.describe(), width="stretch")
             st.caption("🔍 **Interpretación:** Análisis de tendencia central y dispersión procesando los 150,000 registros completos. Ayuda a identificar promedios de estrés y rangos de edad." if idioma=="Español" else "🔍 **Interpretation:** Central tendency and dispersion analysis processing all 150,000 records. Helps identify average stress and age ranges.")
             
         st.markdown("---")
@@ -124,6 +125,12 @@ if opcion == "1":
         
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
+            
+            df_corr = df.copy()
+            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
+            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
+                if col in df_corr.columns:
+                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
             
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
@@ -143,14 +150,17 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            # MATRIZ CORREGIDA: aspect='auto' para celulares, height dinámico y fuente autoajustable
+            # MATRIZ CORREGIDA: Ajuste dinámico de aspecto para que se lea en celulares y PC
             fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
             fig_corr.update_layout(
-                height=500, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False
+                height=700, # Gran altura para dar espacio en móvil
+                margin=dict(l=10, r=10, t=10, b=100), # Mayor margen inferior
+                coloraxis_colorbar=dict(title="Corr"),
+                dragmode=False
             )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
+            fig_corr.update_xaxes(fixedrange=True, tickangle=-90) # -90 grados asegura que quepan en celular
             fig_corr.update_yaxes(fixedrange=True)
-            fig_corr.update_traces(textfont_color="black") 
+            fig_corr.update_traces(textfont_size=12, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
             
@@ -160,7 +170,7 @@ if opcion == "1":
                 'Variable Numérica': ['Depression Score', 'Anxiety Score', 'Stress Level', 'Academic Pressure', 'Sleep Quality', 'Cgpa', 'Screen Time'],
                 'Coef. Asimetría (Skew)': [1.45, 1.22, 0.85, 0.90, -1.10, -0.40, 0.65] 
             })
-            st.dataframe(df_asimetria, use_container_width=True, height=250)
+            st.dataframe(df_asimetria, width="stretch", height=250)
             st.warning("📐 **Justificación del Dataset ASIMÉTRICO:** La asimetría pronunciada (>1.0) en 'Depression Score' demuestra que el dataset está sesgado. Esto nos obligó metodológicamente a descartar modelos paramétricos simples y optar por Ensambles de Árboles (XGBoost), los cuales no asumen normalidad en los datos." if idioma=="Español" else "📐 **ASYMMETRIC Dataset Justification:** The pronounced skewness (>1.0) in 'Depression Score' demonstrates a skewed dataset. This methodologically forced us to discard simple parametric models and opt for Tree Ensembles (XGBoost), which do not assume data normality.")
 
         st.markdown("---")
@@ -355,7 +365,7 @@ elif opcion == "3":
                 {"Clase": "Riesgo Bajo", "Precision": 0.98, "Recall": 0.97}, 
                 {"Clase": "Riesgo Alto", "Precision": t_prec, "Recall": t_rec}
             ])
-            st.dataframe(rep_df, use_container_width=True)
+            st.dataframe(rep_df, width="stretch")
             if nombre == "XGBoost":
                 st.success("🎯 **Explicación Médica:** Seleccionamos este modelo porque solo produce 25 Falsos Negativos (alumnos graves clasificados como 'sanos'). Maximizar el 'Recall' salva vidas reales." if idioma=="Español" else "🎯 **Medical Explanation:** We selected this model because it produces only 25 False Negatives. Maximizing 'Recall' saves real lives.")
             
@@ -455,9 +465,11 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
-        # Eliminado el bloqueo estricto del Radar que causaba el error de sintaxis en Plotly.
         fig_radar.update_layout(
-            height=350, margin=dict(t=30, b=10), dragmode=False
+            height=350, margin=dict(t=30, b=10), dragmode=False,
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 10]) 
+            )
         )
         st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")

@@ -125,12 +125,6 @@ if opcion == "1":
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
             
-            df_corr = df.copy()
-            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
-            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
-                if col in df_corr.columns:
-                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
-            
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
             
@@ -149,17 +143,16 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            # Matriz Ensanchada y Textos Angulados
             fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
             fig_corr.update_layout(
-                height=600, 
+                height=700, # Aumentado dramáticamente para móviles
                 margin=dict(l=10, r=10, t=10, b=50), 
                 coloraxis_colorbar=dict(title="Corr"),
-                dragmode=False
+                dragmode=False,
+                xaxis=dict(fixedrange=True, tickangle=-90, tickfont=dict(size=10)), # Textos a 90 grados para que quepan
+                yaxis=dict(fixedrange=True, tickfont=dict(size=10))
             )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
-            fig_corr.update_yaxes(fixedrange=True)
-            fig_corr.update_traces(textfont_size=12, textfont_color="black") 
+            fig_corr.update_traces(textfont_size=11, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
             
@@ -436,7 +429,11 @@ elif opcion == "4":
         df_map, lat='Latitude', lon='Longitude', color='Risk_Level', size='student_id',
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
+    
+    # Bloqueo total en mapa estático
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
+    fig_map.update_geos(fixedrange=True, projection_type="equirectangular") 
+    
     st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG)
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
     st.markdown("---")

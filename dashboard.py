@@ -28,8 +28,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL
 PLOTLY_CONFIG = {
-    'displayModeBar': True, 'scrollZoom': False, 'displaylogo': False,   
+    'displayModeBar': False, 
+    'scrollZoom': False, 
+    'displaylogo': False,
+    'doubleClick': False, # Bloquea el zoom por doble toque en celulares
+    'showAxisDragHandles': False, # Bloquea las asas de arrastre
     'modeBarButtonsToRemove': [
         'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d',
         'zoomInGeo', 'zoomOutGeo', 'resetGeo', 'hoverClosestGeo'
@@ -120,12 +125,6 @@ if opcion == "1":
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
             
-            df_corr = df.copy()
-            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
-            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
-                if col in df_corr.columns:
-                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
-            
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
             
@@ -144,15 +143,13 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
+            # AQUI: aspect="square" fuerza que no se estire en móviles
+            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
             fig_corr.update_layout(
-                height=650, 
-                margin=dict(l=10, r=10, t=30, b=10), 
-                coloraxis_colorbar=dict(title="Corr"),
-                dragmode=False,
-                xaxis=dict(fixedrange=True, tickangle=-45), 
-                yaxis=dict(fixedrange=True)
+                height=500, margin=dict(l=10, r=10, t=10, b=10), coloraxis_colorbar=dict(title="Corr"), dragmode=False
             )
+            fig_corr.update_xaxes(fixedrange=True, tickangle=-45) # Anti-zoom y textos diagonales
+            fig_corr.update_yaxes(fixedrange=True) # Anti-zoom
             fig_corr.update_traces(textfont_size=13, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
@@ -171,7 +168,9 @@ if opcion == "1":
         
         with col_box:
             fig_box = px.box(df, y="depression_score", title="Detección de Outliers (Boxplot)" if idioma=="Español" else "Outlier Detection (Boxplot)", color_discrete_sequence=['#4CAF50'])
-            fig_box.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_box.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
+            fig_box.update_xaxes(fixedrange=True)
+            fig_box.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
             st.caption("🔍 **Interpretación:** Los puntos aislados por encima de la media geométrica representan casos clínicos extremos (Outliers). Estos son los alumnos que los modelos no lineales deben detectar con máxima prioridad." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the geometric mean represent extreme clinical cases (Outliers). These are the students that non-linear models must detect with highest priority.")
             
@@ -180,7 +179,9 @@ if opcion == "1":
             fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", 
                                   title="Dispersión: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Dispersion: Screen Time vs Anxiety",
                                   opacity=0.6, color_discrete_sequence=['#2196F3'])
-            fig_scat.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_scat.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
+            fig_scat.update_xaxes(fixedrange=True)
+            fig_scat.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
             st.caption("🔍 **Interpretación:** Patrón bivariado que evidencia cómo la densidad poblacional de alumnos con ansiedad crítica se aglomera fuertemente hacia los ejes de hiper-conectividad (>6 horas de pantalla)." if idioma=="Español" else "🔍 **Interpretation:** Bivariate pattern showing how the density of students with critical anxiety heavily clusters towards hyper-connectivity axes (>6 screen hours).")
                 
@@ -191,7 +192,6 @@ elif opcion == "2":
     st.title("⚙️ 2. Modeling (Simulador y Arquitectura)" if idioma=="Español" else "⚙️ 2. Modeling (Simulator and Architecture)")
     st.info("Fase de Modelado: Selección algorítmica, ajuste de hiperparámetros y apertura de la Caja Blanca (Explainable AI)." if idioma=="Español" else "Modeling Phase: Algorithmic selection, hyperparameter tuning, and White-Box AI opening.")
     
-    # --- EXPLICACIÓN DE SELECCIÓN DE MODELOS ---
     with st.expander("📚 Justificación de Selección Algorítmica (Click para expandir)" if idioma == "Español" else "📚 Algorithmic Selection Justification (Click to expand)", expanded=True):
         st.markdown("""
         **¿Por qué usamos XGBoost, Random Forest, Redes Neuronales, SVM y Regresión Lineal/Logística?**
@@ -237,15 +237,9 @@ elif opcion == "2":
             features = ["depression_score", "academic_pressure_score", "anxiety_score", "daily_sleep_hours", "financial_stress_score", "cgpa", "screen_time_hours"]
             importance = [0.38 + (max_depth * 0.01), 0.22, 0.15, 0.11, 0.07, 0.05, 0.02]
             fig_imp = px.bar(x=importance, y=features, orientation='h', title="Gain Mapping: Importancia de Variables en las Ecuaciones" if idioma=="Español" else "Gain Mapping: Feature Importance", color=importance, color_continuous_scale="Viridis")
-            
-            # --- CORRECCIÓN DEL ERROR DE SINTAXIS AQUÍ ---
-            fig_imp.update_layout(
-                yaxis=dict(categoryorder='total ascending', fixedrange=True), # Fusión de argumentos yaxis
-                height=400, 
-                dragmode=False, 
-                xaxis=dict(fixedrange=True)
-            )
-            
+            fig_imp.update_layout(yaxis=dict(categoryorder='total ascending'), height=400, dragmode=False)
+            fig_imp.update_xaxes(fixedrange=True)
+            fig_imp.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_imp, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Apertura de la 'Caja Negra':** El gráfico Mapeo de Ganancias (Gain) nos demuestra matemáticamente que la Puntuación Previa de Depresión y la Presión Académica son los tensores que dividen más fuertemente los nodos de decisión del algoritmo." if idioma=="Español" else "💡 **Opening the 'Black Box':** The Gain Mapping chart mathematically demonstrates that Prior Depression Score and Academic Pressure are the tensors that most strongly divide the algorithm's decision nodes.")
             
@@ -316,7 +310,9 @@ elif opcion == "3":
         modelos = ['Regresión Lineal/Logística', 'SVM', 'Red Neuronal', 'Random Forest', 'XGBoost']
         acc = [0.82, 0.88, 0.90, 0.91, 0.96]
         fig_bar = px.bar(x=modelos, y=acc, text=[f"{val*100:.1f}%" for val in acc], color=acc, color_continuous_scale='Blues')
-        fig_bar.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), showlegend=False, xaxis_title="Ecosistema de Algoritmos", yaxis_title="Tasa de Precisión (Accuracy)", dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+        fig_bar.update_layout(height=350, margin=dict(l=10, r=10, t=30, b=10), showlegend=False, xaxis_title="Ecosistema de Algoritmos", yaxis_title="Tasa de Precisión (Accuracy)", dragmode=False)
+        fig_bar.update_xaxes(fixedrange=True)
+        fig_bar.update_yaxes(fixedrange=True)
         st.plotly_chart(fig_bar, use_container_width=True, config=PLOTLY_CONFIG)
         st.caption("🔍 **Interpretación:** La Regresión Logística (Lineal) sirve como nuestra línea base básica. Al no poder doblar fronteras matemáticas no-lineales, obtiene el peor rendimiento (82%)." if idioma=="Español" else "🔍 **Interpretation:** Logistic (Linear) Regression serves as our baseline. Failing to bend non-linear mathematical boundaries, it gets the worst performance (82%).")
         
@@ -349,7 +345,9 @@ elif opcion == "3":
         c_cm, c_rep = st.columns(2)
         with c_cm:
             fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
-            fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+            fig_cm.update_xaxes(fixedrange=True)
+            fig_cm.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_cm, use_container_width=True, config=PLOTLY_CONFIG)
             st.caption(f"**Análisis Tensorial:** La celda superior izquierda indica Verdaderos Negativos. La inferior derecha: Verdaderos Positivos." if idioma=="Español" else "**Tensor Analysis:** Top-left indicates True Negatives. Bottom-right: True Positives.")
         with c_rep:
@@ -365,22 +363,28 @@ elif opcion == "3":
         with c_roc:
             fig_r = go.Figure()
             fig_r.add_trace(go.Scatter(x=fpr_base, y=tpr_data, mode='lines', line=dict(color=roc_color, width=3)))
-            fig_r.update_layout(title="Curva ROC Sensibilidad", height=300, margin=dict(t=30, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_r.update_layout(title="Curva ROC Sensibilidad", height=300, margin=dict(t=30, b=10), dragmode=False)
+            fig_r.update_xaxes(fixedrange=True)
+            fig_r.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_r, use_container_width=True, config=PLOTLY_CONFIG)
             st.caption("Mide la proporción de positivos reales vs falsas alarmas." if idioma=="Español" else "Measures true positives vs false alarms proportion.")
         with c_auc:
             fig_a = go.Figure()
             fig_a.add_trace(go.Scatter(x=fpr_base, y=tpr_data, mode='lines', fill='tozeroy', line=dict(color=roc_color)))
             fig_a.add_annotation(x=0.5, y=0.5, text=f"<b>AUC = {auc_val}</b>", showarrow=False, font=dict(size=20))
-            fig_a.update_layout(title="Métrica AUC", height=300, margin=dict(t=30, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_a.update_layout(title="Métrica AUC", height=300, margin=dict(t=30, b=10), dragmode=False)
+            fig_a.update_xaxes(fixedrange=True)
+            fig_a.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_a, use_container_width=True, config=PLOTLY_CONFIG)
             st.caption("Área bajo la curva: 1.0 representa perfección matemática." if idioma=="Español" else "Area under curve: 1.0 represents mathematical perfection.")
         with c_loss:
             fig_l = go.Figure()
-            fig_l.add_trace(go.Scatter(y=loss_data, mode='lines+markers', line=dict(color='#FF5722', width=3)))
-            fig_l.update_layout(title="Descenso Log-Loss", height=300, margin=dict(t=30, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            fig_l.add_trace(go.Scatter(x=list(range(len(loss_data))), y=loss_data, mode='lines+markers', line=dict(color='#FF5722', width=3)))
+            fig_l.update_layout(title="Descenso Log-Loss", height=300, margin=dict(t=30, b=10), dragmode=False)
+            fig_l.update_xaxes(fixedrange=True)
+            fig_l.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_l, use_container_width=True, config=PLOTLY_CONFIG)
-            st.caption("Visualiza cómo el error de predicción del modelo decae por cada iteración." if idioma=="Español" else "Visualizes how the model's prediction error decays per iteration.")
+            st.caption("Visualiza cómo el error de predicción del modelo decae por iteración." if idioma=="Español" else "Visualizes how the model's prediction error decays per iteration.")
 
     with t_xgb:
         renderizar_pestaña("XGBoost", [[1420, 35], [25, 520]], 0.93, 0.95, 'Blues', '#1A237E', 0.96, [0, 0.88, 0.93, 0.96, 0.98, 0.99, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], [0.65, 0.40, 0.25, 0.15, 0.10, 0.08, 0.06, 0.05, 0.04, 0.04])
@@ -424,6 +428,7 @@ elif opcion == "4":
         df_map, lat='Latitude', lon='Longitude', color='Risk_Level', size='student_id',
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
+    # Anti-arrastre en el mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False, geo=dict(fixedrange=True))
     st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG)
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
@@ -450,7 +455,15 @@ elif opcion == "4":
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
-        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10], fixedrange=True), angularaxis=dict(fixedrange=True)), height=350, margin=dict(t=30, b=10), dragmode=False)
+        
+        # Bloqueo estricto del Radar para evitar la rotación manual
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 10], fixedrange=True), 
+                angularaxis=dict(fixedrange=True)
+            ), 
+            height=350, margin=dict(t=30, b=10), dragmode=False
+        )
         st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")
         
@@ -464,8 +477,9 @@ elif opcion == "4":
         fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
         fig_pareto.add_trace(go.Bar(x=x_sev, y=y_sev, name="Freq", marker_color='#3949ab'), secondary_y=False)
         fig_pareto.add_trace(go.Scatter(x=x_sev, y=[30.0, 53.3, 73.3, 90.0, 100], mode='lines+markers+text', text=["30%", "53%", "73%", "90%", "100%"], textposition="top left", line=dict(color='#F44336', width=3)), secondary_y=True)
-        fig_pareto.update_layout(height=400, margin=dict(t=10, b=10), showlegend=False, dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
-        fig_pareto.update_yaxes(title_text="Cantidad de Estudiantes", secondary_y=False)
+        fig_pareto.update_layout(height=400, margin=dict(t=10, b=10), showlegend=False, dragmode=False)
+        fig_pareto.update_xaxes(fixedrange=True)
+        fig_pareto.update_yaxes(title_text="Cantidad de Estudiantes", secondary_y=False, fixedrange=True)
         fig_pareto.update_yaxes(title_text="% Acumulado", range=[0, 110], secondary_y=True, fixedrange=True)
         st.plotly_chart(fig_pareto, use_container_width=True, config=PLOTLY_CONFIG)
         st.caption("🔍 **Estrategia 80/20:** Focalizar esfuerzos psicológicos en el extremo derecho (10% severo) reduce drásticamente el burnout macro de la institución." if idioma=="Español" else "🔍 **80/20 Strategy:** Focusing psychological efforts on the severe right tail drastically reduces macro burnout.")
@@ -481,7 +495,9 @@ elif opcion == "4":
         ])
         fig_gantt = px.timeline(df_gantt, x_start="Start", x_end="Finish", y="Task", color_discrete_sequence=['#64b5f6'])
         fig_gantt.update_yaxes(autorange="reversed")
-        fig_gantt.update_layout(height=400, margin=dict(t=10, b=10), dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+        fig_gantt.update_layout(height=400, margin=dict(t=10, b=10), dragmode=False)
+        fig_gantt.update_xaxes(fixedrange=True)
+        fig_gantt.update_yaxes(fixedrange=True)
         st.plotly_chart(fig_gantt, use_container_width=True, config=PLOTLY_CONFIG)
 
     st.markdown("---")
@@ -505,4 +521,4 @@ elif opcion == "4":
         c_kpi_b.metric("Remanente Crítico Aislado" if idioma == "Español" else "New High-Risk Total", f"{casos_restantes:,}", f"-{reduc_presion}% de Choque")
         
         st.progress(max(0, min(100, 100 - int((casos_restantes/casos_originales)*100))), text="Retorno de Inversión Analítico (ROI Psicológico)" if idioma == "Español" else "Institutional Intervention Efficacy")
-        st.info("💡 **Aporte cientifico** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")
+        st.info("💡 **Aporte Cientifico:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Scientific Value:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")

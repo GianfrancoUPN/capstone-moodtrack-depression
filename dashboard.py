@@ -28,9 +28,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Bloqueo duro a nivel de librería gráfica
 PLOTLY_CONFIG = {
-    'displayModeBar': False, 'scrollZoom': False, 'displaylogo': False,   
+    'displayModeBar': True, 'scrollZoom': False, 'displaylogo': False,   
     'modeBarButtonsToRemove': [
         'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d',
         'zoomInGeo', 'zoomOutGeo', 'resetGeo', 'hoverClosestGeo'
@@ -146,17 +145,15 @@ if opcion == "1":
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
             fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
-            
-            # Anti-Zoom y Ajuste Móvil en Matriz
             fig_corr.update_layout(
-                height=650, # Aumentado para que los cuadrados respiren en celulares
+                height=650, 
                 margin=dict(l=10, r=10, t=30, b=10), 
                 coloraxis_colorbar=dict(title="Corr"),
                 dragmode=False,
-                xaxis=dict(fixedrange=True, tickangle=-45), # Girar textos para móviles
+                xaxis=dict(fixedrange=True, tickangle=-45), 
                 yaxis=dict(fixedrange=True)
             )
-            fig_corr.update_traces(textfont_size=12, textfont_color="black") 
+            fig_corr.update_traces(textfont_size=13, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
             
@@ -240,7 +237,15 @@ elif opcion == "2":
             features = ["depression_score", "academic_pressure_score", "anxiety_score", "daily_sleep_hours", "financial_stress_score", "cgpa", "screen_time_hours"]
             importance = [0.38 + (max_depth * 0.01), 0.22, 0.15, 0.11, 0.07, 0.05, 0.02]
             fig_imp = px.bar(x=importance, y=features, orientation='h', title="Gain Mapping: Importancia de Variables en las Ecuaciones" if idioma=="Español" else "Gain Mapping: Feature Importance", color=importance, color_continuous_scale="Viridis")
-            fig_imp.update_layout(yaxis={'categoryorder':'total ascending'}, height=400, dragmode=False, xaxis=dict(fixedrange=True), yaxis=dict(fixedrange=True))
+            
+            # --- CORRECCIÓN DEL ERROR DE SINTAXIS AQUÍ ---
+            fig_imp.update_layout(
+                yaxis=dict(categoryorder='total ascending', fixedrange=True), # Fusión de argumentos yaxis
+                height=400, 
+                dragmode=False, 
+                xaxis=dict(fixedrange=True)
+            )
+            
             st.plotly_chart(fig_imp, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Apertura de la 'Caja Negra':** El gráfico Mapeo de Ganancias (Gain) nos demuestra matemáticamente que la Puntuación Previa de Depresión y la Presión Académica son los tensores que dividen más fuertemente los nodos de decisión del algoritmo." if idioma=="Español" else "💡 **Opening the 'Black Box':** The Gain Mapping chart mathematically demonstrates that Prior Depression Score and Academic Pressure are the tensors that most strongly divide the algorithm's decision nodes.")
             
@@ -500,4 +505,4 @@ elif opcion == "4":
         c_kpi_b.metric("Remanente Crítico Aislado" if idioma == "Español" else "New High-Risk Total", f"{casos_restantes:,}", f"-{reduc_presion}% de Choque")
         
         st.progress(max(0, min(100, 100 - int((casos_restantes/casos_originales)*100))), text="Retorno de Inversión Analítico (ROI Psicológico)" if idioma == "Español" else "Institutional Intervention Efficacy")
-        st.info("💡 **Aporte de Tesis a Nivel Gerencial:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Management Thesis Value:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")
+        st.info("💡 **Aporte cientifico** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")

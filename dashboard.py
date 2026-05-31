@@ -149,16 +149,17 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            # MATRIZ CORREGIDA: aspect='square' idéntico al proyecto del Hantavirus para asegurar visibilidad en móviles
-            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
+            # MATRIZ CORREGIDA: Ajuste explícito de proporciones para celulares
+            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
             fig_corr.update_layout(
-                height=700, 
+                width=600, # Fuerza un ancho estable para evitar aplastamiento
+                height=600, 
                 margin=dict(l=10, r=10, t=10, b=100), 
                 coloraxis_colorbar=dict(title="Corr"),
                 dragmode=False
             )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-90)
-            fig_corr.update_yaxes(fixedrange=True)
+            fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=11))
+            fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=11))
             fig_corr.update_traces(textfont_size=12, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
@@ -438,8 +439,16 @@ elif opcion == "4":
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
     
-    # Bloqueo total en mapa estático. En mapas se debe omitir config que pise a "geo".
-    fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
+    # Bloqueo correcto del mapa mediante el dict global "geo"
+    fig_map.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0), 
+        dragmode=False, 
+        geo=dict(
+            projection_type="equirectangular",
+            # Desactivamos el zoom interno del mapa
+            lataxis_showgrid=False, lonaxis_showgrid=False
+        )
+    )
     
     st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG)
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
@@ -467,8 +476,11 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
-        # Eliminado el bloqueo estricto del Radar que causaba el error de sintaxis en Plotly.
+        # Bloqueo del Radar
         fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 10])
+            ),
             height=350, margin=dict(t=30, b=10), dragmode=False
         )
         st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)

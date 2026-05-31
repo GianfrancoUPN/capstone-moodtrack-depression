@@ -111,7 +111,6 @@ if opcion == "1":
         
         with col_tabla:
             st.subheader("Vista Previa" if idioma=="Español" else "Data Preview")
-            # Cambiado a `width="stretch"` según recomendación de Streamlit
             st.dataframe(df.head(50), width="stretch")
             st.caption("🔍 **Interpretación:** Muestra de los primeros 50 registros. Se valida la correcta tipificación de variables (int, float, object)." if idioma=="Español" else "🔍 **Interpretation:** Sample of the first 50 records. Validates correct variable typing (int, float, object).")
             
@@ -150,15 +149,15 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            # MATRIZ CORREGIDA: Ajuste dinámico de aspecto para que se lea en celulares y PC
-            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
+            # MATRIZ CORREGIDA: aspect='square' idéntico al proyecto del Hantavirus para asegurar visibilidad en móviles
+            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
             fig_corr.update_layout(
-                height=700, # Gran altura para dar espacio en móvil
-                margin=dict(l=10, r=10, t=10, b=100), # Mayor margen inferior
+                height=700, 
+                margin=dict(l=10, r=10, t=10, b=100), 
                 coloraxis_colorbar=dict(title="Corr"),
                 dragmode=False
             )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-90) # -90 grados asegura que quepan en celular
+            fig_corr.update_xaxes(fixedrange=True, tickangle=-90)
             fig_corr.update_yaxes(fixedrange=True)
             fig_corr.update_traces(textfont_size=12, textfont_color="black") 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
@@ -438,7 +437,10 @@ elif opcion == "4":
         df_map, lat='Latitude', lon='Longitude', color='Risk_Level', size='student_id',
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
+    
+    # Bloqueo total en mapa estático. En mapas se debe omitir config que pise a "geo".
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
+    
     st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG)
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
     st.markdown("---")
@@ -465,11 +467,9 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
+        # Eliminado el bloqueo estricto del Radar que causaba el error de sintaxis en Plotly.
         fig_radar.update_layout(
-            height=350, margin=dict(t=30, b=10), dragmode=False,
-            polar=dict(
-                radialaxis=dict(visible=True, range=[0, 10]) 
-            )
+            height=350, margin=dict(t=30, b=10), dragmode=False
         )
         st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")

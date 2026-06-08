@@ -149,10 +149,11 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
+            # MATRIZ CORREGIDA DEFINITIVA: Solución responsiva sin anchos fijos
             fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
             fig_corr.update_layout(
-                height=700, 
-                margin=dict(l=10, r=10, t=10, b=100), 
+                height=650, 
+                margin=dict(l=10, r=10, t=10, b=50), 
                 coloraxis_colorbar=dict(title="Corr"),
                 dragmode=False
             )
@@ -436,8 +437,12 @@ elif opcion == "4":
         df_map, lat='Latitude', lon='Longitude', color='Risk_Level', size='student_id',
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
+    
+    # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
-    st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG)
+    # config=dict(staticPlot=True) inhibe cualquier evento del mouse
+    st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
+    
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
     st.markdown("---")
     
@@ -464,13 +469,9 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
         # Bloqueo del Radar
-        fig_radar.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=[0, 10])
-            ),
-            height=350, margin=dict(t=30, b=10), dragmode=False
-        )
-        st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
+        fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
+        # config=dict(staticPlot=True) inhibe cualquier evento del mouse
+        st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")
         
     st.markdown("---")

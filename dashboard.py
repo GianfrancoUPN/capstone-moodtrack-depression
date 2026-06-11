@@ -11,6 +11,7 @@ import time
 # ==========================================
 st.set_page_config(page_title="MoodTrack - CRISP-DM", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
+# Inyección para detectar si es Móvil o Desktop y ajustar CSS
 st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -27,6 +28,9 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# Detección heurística básica de entorno móvil usando el ancho de Streamlit (Hack)
+is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
 
 # BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
 PLOTLY_CONFIG = {
@@ -125,12 +129,6 @@ if opcion == "1":
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
             
-            df_corr = df.copy()
-            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
-            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
-                if col in df_corr.columns:
-                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
-            
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
             
@@ -149,17 +147,24 @@ if opcion == "1":
 
             nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
             
-            # MATRIZ CORREGIDA DEFINITIVA: Solución responsiva sin anchos fijos
-            fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
-            fig_corr.update_layout(
-                height=650, 
-                margin=dict(l=10, r=10, t=10, b=50), 
-                coloraxis_colorbar=dict(title="Corr"),
-                dragmode=False
-            )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-90) 
-            fig_corr.update_yaxes(fixedrange=True)
-            fig_corr.update_traces(textfont_size=12, textfont_color="black") 
+            # MATRIZ CORREGIDA: Lógica Dinámica PC vs Móvil
+            if is_mobile:
+                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
+                fig_corr.update_layout(
+                    width=400, height=500, margin=dict(l=10, r=10, t=10, b=120), coloraxis_colorbar=dict(title="Corr"), dragmode=False
+                )
+                fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=9))
+                fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=9))
+                fig_corr.update_traces(textfont_size=9, textfont_color="black") 
+            else:
+                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
+                fig_corr.update_layout(
+                    height=500, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False
+                )
+                fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
+                fig_corr.update_yaxes(fixedrange=True)
+                fig_corr.update_traces(textfont_size=12, textfont_color="black") 
+
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
             
@@ -353,8 +358,14 @@ elif opcion == "3":
     def renderizar_pestaña(nombre, z_matrix, t_prec, t_rec, loss_color, roc_color, auc_val, tpr_data, loss_data):
         c_cm, c_rep = st.columns(2)
         with c_cm:
-            fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
-            fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+            # Matrices Cuadradas para evitar que el texto desaparezca al descargar PNG o ver en móvil
+            if is_mobile:
+                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
+                fig_cm.update_layout(width=300, height=300, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+            else:
+                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
+                fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+                
             fig_cm.update_xaxes(fixedrange=True)
             fig_cm.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_cm, use_container_width=True, config=PLOTLY_CONFIG)

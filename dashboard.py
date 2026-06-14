@@ -29,9 +29,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Detección heurística básica de entorno móvil usando el ancho de Streamlit
-is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
-
 # BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
 PLOTLY_CONFIG = {
     'displayModeBar': True, # Activado para permitir descargas
@@ -43,7 +40,7 @@ PLOTLY_CONFIG = {
         'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d',
         'zoomInGeo', 'zoomOutGeo', 'resetGeo', 'hoverClosestGeo'
     ],
-    'toImageButtonOptions': {'format': 'png', 'filename': 'MoodTrack_Chart', 'height': 720, 'width': 1280, 'scale': 2}
+    'toImageButtonOptions': {'format': 'png', 'filename': 'MoodTrack_Chart', 'scale': 2} # Removido el ancho estricto para evitar aplastamiento al exportar
 }
 
 # ==========================================
@@ -83,9 +80,19 @@ opciones_fase = {
 seleccion_visual = st.sidebar.radio(T[idioma]['nav_titulo'], list(opciones_fase.keys()))
 opcion = opciones_fase[seleccion_visual]
 
+# Detección heurística básica de entorno móvil
+is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular" if idioma == "Español" else "📱 Optimize view for Mobile", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices." if idioma == "Español" else "Activate this if you are browsing from a phone to avoid matrix distortion.")
+
 if st.sidebar.button(T[idioma]['btn_recargar']):
     st.cache_data.clear()
     st.rerun()
+
+# --- AVISO MÓVIL AL INICIO ---
+if not is_mobile:
+    if idioma == "Español":
+        st.warning("⚠️ **Aviso UX:** Si estás viendo esto en un celular, te recomendamos activar la opción **'📱 Optimizar vista para Celular'** en el menú izquierdo para una experiencia visual perfecta.")
+    else:
+        st.warning("⚠️ **UX Warning:** If you are viewing this on a mobile phone, we recommend activating the **'📱 Optimize view for Mobile'** option in the left menu for a perfect visual experience.")
 
 # --- CARGA DE DATOS Y GENERACIÓN SINTÉTICA GEOESPACIAL ---
 @st.cache_data
@@ -166,15 +173,15 @@ if opcion == "1":
             # Traducción dinámica de los nombres para la gráfica
             nombres_traducidos = [T[idioma]['var_nombres'][col] for col in cols_clave]
             
-            # MATRIZ CORREGIDA: aspect="square" asegura que los números no se borren en móvil ni al descargar
-            fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
-            
+            # MATRIZ CORREGIDA: aspect="square" y textos de tamaño variable dependiendo de si estamos en PC o Móvil
             if is_mobile:
+                fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
                 fig_corr.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), coloraxis_showscale=False, dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=9))
                 fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=9))
                 fig_corr.update_traces(textfont_size=9, textfont_color="black") 
             else:
+                fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
                 fig_corr.update_layout(height=650, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
                 fig_corr.update_yaxes(fixedrange=True)
@@ -377,9 +384,12 @@ elif opcion == "3":
     def renderizar_pestaña(nombre, z_matrix, t_prec, t_rec, loss_color, roc_color, auc_val, tpr_data, loss_data):
         c_cm, c_rep = st.columns(2)
         with c_cm:
-            # MATRIX CONFUSIÓN CORREGIDA: aspect="square" forzado para descargas nítidas y vistas móviles
-            fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
-            fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+            if is_mobile:
+                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
+                fig_cm.update_layout(height=300, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
+            else:
+                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
+                fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
             fig_cm.update_xaxes(fixedrange=True)
             fig_cm.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_cm, use_container_width=True, config=PLOTLY_CONFIG)
@@ -462,11 +472,8 @@ elif opcion == "4":
         df_map, lat='Latitude', lon='Longitude', color='Risk_Level', size='student_id',
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
-    
-    # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
     st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
-    
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
     st.markdown("---")
     
@@ -492,7 +499,6 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
-        # Bloqueo del Radar
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")

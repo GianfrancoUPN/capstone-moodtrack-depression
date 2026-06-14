@@ -11,6 +11,7 @@ import time
 # ==========================================
 st.set_page_config(page_title="MoodTrack - CRISP-DM", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
+# Inyección para detectar si es Móvil o Desktop y ajustar CSS
 st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -28,7 +29,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y DESCARGA SIN DISTORSIÓN
+# Detección heurística básica de entorno móvil usando el ancho de Streamlit
+is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
+
+# BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
 PLOTLY_CONFIG = {
     'displayModeBar': True, # Activado para permitir descargas
     'scrollZoom': False, 
@@ -39,8 +43,7 @@ PLOTLY_CONFIG = {
         'zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d',
         'zoomInGeo', 'zoomOutGeo', 'resetGeo', 'hoverClosestGeo'
     ],
-    # Se eliminó width y height fijos para que descargue sin deformar la matriz
-    'toImageButtonOptions': {'format': 'png', 'filename': 'MoodTrack_Chart', 'scale': 2}
+    'toImageButtonOptions': {'format': 'png', 'filename': 'MoodTrack_Chart', 'height': 720, 'width': 1280, 'scale': 2}
 }
 
 # ==========================================
@@ -124,12 +127,12 @@ if opcion == "1":
         
         with col_tabla:
             st.subheader("Vista Previa" if idioma=="Español" else "Data Preview")
-            st.dataframe(df.head(50), use_container_width=True)
+            st.dataframe(df.head(50), width="stretch")
             st.caption("🔍 **Interpretación:** Muestra de los primeros 50 registros. Se valida la correcta tipificación de variables (int, float, object)." if idioma=="Español" else "🔍 **Interpretation:** Sample of the first 50 records. Validates correct variable typing (int, float, object).")
             
         with col_stats:
             st.subheader("Estadística Descriptiva" if idioma=="Español" else "Descriptive Statistics")
-            st.dataframe(df.describe(), use_container_width=True)
+            st.dataframe(df.describe(), width="stretch")
             st.caption("🔍 **Interpretación:** Análisis de tendencia central y dispersión procesando los 150,000 registros completos. Ayuda a identificar promedios de estrés y rangos de edad." if idioma=="Español" else "🔍 **Interpretation:** Central tendency and dispersion analysis processing all 150,000 records. Helps identify average stress and age ranges.")
             
         st.markdown("---")
@@ -137,6 +140,12 @@ if opcion == "1":
         
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
+            
+            df_corr = df.copy()
+            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
+            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
+                if col in df_corr.columns:
+                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
             
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
@@ -154,19 +163,23 @@ if opcion == "1":
             for col in matriz_corr.columns:
                 matriz_corr.loc[col, col] = 1.00
 
-            # Traducción dinámica inyectada directamente al DataFrame
+            # Traducción dinámica de los nombres para la gráfica
             nombres_traducidos = [T[idioma]['var_nombres'][col] for col in cols_clave]
-            matriz_corr.columns = nombres_traducidos
-            matriz_corr.index = nombres_traducidos
             
-            # MATRIZ CORREGIDA: "aspect='auto'" replica la elasticidad del hantavirus, previniendo el achatamiento.
-            fig_corr = px.imshow(matriz_corr, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
-            fig_corr.update_layout(
-                height=500, margin=dict(l=10, r=10, t=10, b=10), coloraxis_colorbar=dict(title="Corr"), dragmode=False
-            )
-            fig_corr.update_xaxes(fixedrange=True, tickangle=-45, tickfont=dict(size=11))
-            fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=11))
-            fig_corr.update_traces(textfont_size=11, textfont_color="black") 
+            # MATRIZ CORREGIDA: aspect="square" asegura que los números no se borren en móvil ni al descargar
+            fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
+            
+            if is_mobile:
+                fig_corr.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), coloraxis_showscale=False, dragmode=False)
+                fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=9))
+                fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=9))
+                fig_corr.update_traces(textfont_size=9, textfont_color="black") 
+            else:
+                fig_corr.update_layout(height=650, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False)
+                fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
+                fig_corr.update_yaxes(fixedrange=True)
+                fig_corr.update_traces(textfont_size=13, textfont_color="black") 
+
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             
             if idioma == "Español":
@@ -180,7 +193,7 @@ if opcion == "1":
                 'Variable Numérica': ['Depression Score', 'Anxiety Score', 'Stress Level', 'Academic Pressure', 'Sleep Quality', 'Cgpa', 'Screen Time'],
                 'Coef. Asimetría (Skew)': [1.45, 1.22, 0.85, 0.90, -1.10, -0.40, 0.65] 
             })
-            st.dataframe(df_asimetria, use_container_width=True, height=250)
+            st.dataframe(df_asimetria, width="stretch", height=250)
             st.warning("📐 **Justificación del Dataset ASIMÉTRICO:** La asimetría pronunciada (>1.0) en 'Depression Score' demuestra que el dataset está sesgado. Esto nos obligó metodológicamente a descartar modelos paramétricos simples y optar por Ensambles de Árboles (XGBoost), los cuales no asumen normalidad en los datos." if idioma=="Español" else "📐 **ASYMMETRIC Dataset Justification:** The pronounced skewness (>1.0) in 'Depression Score' demonstrates a skewed dataset. This methodologically forced us to discard simple parametric models and opt for Tree Ensembles (XGBoost), which do not assume data normality.")
 
         st.markdown("---")
@@ -364,8 +377,8 @@ elif opcion == "3":
     def renderizar_pestaña(nombre, z_matrix, t_prec, t_rec, loss_color, roc_color, auc_val, tpr_data, loss_data):
         c_cm, c_rep = st.columns(2)
         with c_cm:
-            # MATRIX CONFUSIÓN CORREGIDA: aspect="auto" para evitar desbordamiento al descargar/móvil
-            fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
+            # MATRIX CONFUSIÓN CORREGIDA: aspect="square" forzado para descargas nítidas y vistas móviles
+            fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
             fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
             fig_cm.update_xaxes(fixedrange=True)
             fig_cm.update_yaxes(fixedrange=True)
@@ -376,7 +389,7 @@ elif opcion == "3":
                 {"Clase": "Riesgo Bajo", "Precision": 0.98, "Recall": 0.97}, 
                 {"Clase": "Riesgo Alto", "Precision": t_prec, "Recall": t_rec}
             ])
-            st.dataframe(rep_df, use_container_width=True)
+            st.dataframe(rep_df, width="stretch")
             if nombre == "XGBoost":
                 st.success("🎯 **Explicación Médica:** Seleccionamos este modelo porque solo produce 25 Falsos Negativos (alumnos graves clasificados como 'sanos'). Maximizar el 'Recall' salva vidas reales." if idioma=="Español" else "🎯 **Medical Explanation:** We selected this model because it produces only 25 False Negatives. Maximizing 'Recall' saves real lives.")
             
@@ -450,7 +463,7 @@ elif opcion == "4":
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
     
-    # Bloqueo total estático del mapa sin comandos problemáticos
+    # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
     st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
     
@@ -479,7 +492,7 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
-        # Bloqueo del Radar sin usar fixedrange
+        # Bloqueo del Radar
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")

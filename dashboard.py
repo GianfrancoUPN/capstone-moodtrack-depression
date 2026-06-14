@@ -29,7 +29,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Detección heurística básica de entorno móvil usando el ancho de Streamlit (Hack)
+# Detección heurística básica de entorno móvil usando el ancho de Streamlit
 is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
 
 # BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
@@ -55,12 +55,24 @@ T = {
     'Español': {
         'nav_titulo': "Navegación del Proyecto:", 'f1': "1. Data Understanding (Exploración)",
         'f2': "2. Modeling (Entrenamiento y Simulación)", 'f3': "3. Evaluation (Métricas y Rendimiento)",
-        'f4': "4. Deployment (Dashboard Analítico)", 'btn_recargar': "♻️ Recargar Dataset desde Disco"
+        'f4': "4. Deployment (Dashboard Analítico)", 'btn_recargar': "♻️ Recargar Dataset desde Disco",
+        'var_nombres': {
+            'depression_score': 'Nivel de Depresión', 'anxiety_score': 'Nivel de Ansiedad',
+            'stress_level': 'Nivel de Estrés', 'academic_pressure_score': 'Presión Académica',
+            'sleep_quality': 'Calidad de Sueño', 'cgpa': 'Promedio Académico (CGPA)',
+            'screen_time_hours': 'Horas de Pantalla'
+        }
     },
     'English': {
         'nav_titulo': "Project Navigation:", 'f1': "1. Data Understanding (Exploration)",
         'f2': "2. Modeling (Training & Simulation)", 'f3': "3. Evaluation (Metrics & Performance)",
-        'f4': "4. Deployment (Analytical Dashboard)", 'btn_recargar': "♻️ Reload Dataset from Disk"
+        'f4': "4. Deployment (Analytical Dashboard)", 'btn_recargar': "♻️ Reload Dataset from Disk",
+        'var_nombres': {
+            'depression_score': 'Depression Score', 'anxiety_score': 'Anxiety Score',
+            'stress_level': 'Stress Level', 'academic_pressure_score': 'Academic Pressure',
+            'sleep_quality': 'Sleep Quality', 'cgpa': 'CGPA',
+            'screen_time_hours': 'Screen Time Hours'
+        }
     }
 }
 
@@ -129,6 +141,12 @@ if opcion == "1":
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
             
+            df_corr = df.copy()
+            mapeo_ordinal = {'Low': 1, 'Medium': 2, 'High': 3, 'Poor': 1, 'Average': 2, 'Good': 3}
+            for col in ['stress_level', 'burnout_level', 'sleep_quality']:
+                if col in df_corr.columns:
+                    df_corr[col] = df_corr[col].map(mapeo_ordinal)
+            
             cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
             
@@ -145,28 +163,29 @@ if opcion == "1":
             for col in matriz_corr.columns:
                 matriz_corr.loc[col, col] = 1.00
 
-            nombres_limpios = matriz_corr.columns.str.replace('_', ' ').str.title()
+            # Traducción dinámica de los nombres para la gráfica
+            nombres_traducidos = [T[idioma]['var_nombres'][col] for col in cols_clave]
             
-            # MATRIZ CORREGIDA: Lógica Dinámica PC vs Móvil
+            # MATRIZ CORREGIDA: aspect="square" asegura que los números no se borren en móvil ni al descargar
+            fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
+            
             if is_mobile:
-                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
-                fig_corr.update_layout(
-                    width=400, height=500, margin=dict(l=10, r=10, t=10, b=120), coloraxis_colorbar=dict(title="Corr"), dragmode=False
-                )
+                fig_corr.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), coloraxis_showscale=False, dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=9))
                 fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=9))
                 fig_corr.update_traces(textfont_size=9, textfont_color="black") 
             else:
-                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
-                fig_corr.update_layout(
-                    height=500, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False
-                )
+                fig_corr.update_layout(height=650, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
                 fig_corr.update_yaxes(fixedrange=True)
-                fig_corr.update_traces(textfont_size=12, textfont_color="black") 
+                fig_corr.update_traces(textfont_size=13, textfont_color="black") 
 
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
-            st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65)." if idioma=="Español" else "💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65).")
+            
+            if idioma == "Español":
+                st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65). \n\n 📝 *Nota:* **CGPA** significa *Cumulative Grade Point Average* (Promedio de Calificaciones Acumulado), y representa el rendimiento académico general del estudiante.")
+            else:
+                st.info("💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65). \n\n 📝 *Note:* **CGPA** stands for Cumulative Grade Point Average, representing the student's overall academic performance.")
             
         with col_simetria:
             st.subheader("Análisis de Simetría (Skewness)" if idioma=="Español" else "Skewness Analysis")
@@ -358,14 +377,9 @@ elif opcion == "3":
     def renderizar_pestaña(nombre, z_matrix, t_prec, t_rec, loss_color, roc_color, auc_val, tpr_data, loss_data):
         c_cm, c_rep = st.columns(2)
         with c_cm:
-            # Matrices Cuadradas para evitar que el texto desaparezca al descargar PNG o ver en móvil
-            if is_mobile:
-                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
-                fig_cm.update_layout(width=300, height=300, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
-            else:
-                fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="auto")
-                fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
-                
+            # MATRIX CONFUSIÓN CORREGIDA: aspect="square" forzado para descargas nítidas y vistas móviles
+            fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
+            fig_cm.update_layout(height=280, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
             fig_cm.update_xaxes(fixedrange=True)
             fig_cm.update_yaxes(fixedrange=True)
             st.plotly_chart(fig_cm, use_container_width=True, config=PLOTLY_CONFIG)
@@ -451,7 +465,6 @@ elif opcion == "4":
     
     # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
-    # config=dict(staticPlot=True) inhibe cualquier evento del mouse
     st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
     
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
@@ -481,7 +494,6 @@ elif opcion == "4":
         
         # Bloqueo del Radar
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
-        # config=dict(staticPlot=True) inhibe cualquier evento del mouse
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")
         

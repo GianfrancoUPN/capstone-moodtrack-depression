@@ -29,9 +29,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Detección heurística básica de entorno móvil usando el ancho de Streamlit
-is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
-
 # BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
 PLOTLY_CONFIG = {
     'displayModeBar': True, # Activado para permitir descargas
@@ -83,16 +80,30 @@ opciones_fase = {
 seleccion_visual = st.sidebar.radio(T[idioma]['nav_titulo'], list(opciones_fase.keys()))
 opcion = opciones_fase[seleccion_visual]
 
+# Detección de dispositivo (Checkbox manual para forzar la optimización)
+is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular" if idioma == "Español" else "📱 Optimize view for Mobile", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices." if idioma == "Español" else "Activate this if you are browsing from a phone to avoid matrix distortion.")
+
 if st.sidebar.button(T[idioma]['btn_recargar']):
     st.cache_data.clear()
     st.rerun()
 
-# --- AVISO MÓVIL AL INICIO ---
+# --- AVISO MÓVIL AL INICIO USANDO DETECCIÓN BÁSICA POR HTML/JS ---
+st.components.v1.html(
+    """
+    <script>
+        if (window.innerWidth < 800) {
+            window.parent.postMessage("mobile_detected", "*");
+        }
+    </script>
+    """,
+    height=0,
+)
+
 if not is_mobile:
     if idioma == "Español":
-        st.warning("⚠️ **Aviso UX:** Si estás viendo esto en un celular, te recomendamos activar la opción **'📱 Optimizar vista para Celular'** en el menú izquierdo para una experiencia visual perfecta.")
+        st.warning("⚠️ **Aviso UX:** Si estás viendo esto en un dispositivo móvil, te recomendamos activar la opción **'📱 Optimizar vista para Celular'** en el menú izquierdo para una experiencia visual perfecta.")
     else:
-        st.warning("⚠️ **UX Warning:** If you are viewing this on a mobile phone, we recommend activating the **'📱 Optimize view for Mobile'** option in the left menu for a perfect visual experience.")
+        st.warning("⚠️ **UX Warning:** If you are viewing this on a mobile device, we recommend activating the **'📱 Optimize view for Mobile'** option in the left menu for a perfect visual experience.")
 
 # --- CARGA DE DATOS Y GENERACIÓN SINTÉTICA GEOESPACIAL ---
 @st.cache_data
@@ -145,6 +156,8 @@ if opcion == "1":
         st.markdown("---")
         col_corr, col_simetria = st.columns(2)
         
+        cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
+        
         with col_corr:
             st.subheader("Matriz de Correlación" if idioma=="Español" else "Correlation Matrix")
             
@@ -154,7 +167,6 @@ if opcion == "1":
                 if col in df_corr.columns:
                     df_corr[col] = df_corr[col].map(mapeo_ordinal)
             
-            cols_clave = ['depression_score', 'anxiety_score', 'stress_level', 'academic_pressure_score', 'sleep_quality', 'cgpa', 'screen_time_hours']
             matriz_corr = pd.DataFrame(np.random.uniform(-0.1, 0.1, size=(7, 7)), columns=cols_clave, index=cols_clave)
             
             relaciones = {
@@ -172,7 +184,6 @@ if opcion == "1":
 
             nombres_traducidos = [T[idioma]['var_nombres'][col] for col in cols_clave]
             
-            # MATRIZ CORREGIDA: Lógica robusta emulando Hantavirus
             if is_mobile:
                 fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
                 fig_corr.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), coloraxis_showscale=False, dragmode=False)
@@ -203,26 +214,38 @@ if opcion == "1":
             st.warning("📐 **Justificación del Dataset ASIMÉTRICO:** La asimetría pronunciada (>1.0) en 'Depression Score' demuestra que el dataset está sesgado. Esto nos obligó metodológicamente a descartar modelos paramétricos simples y optar por Ensambles de Árboles (XGBoost), los cuales no asumen normalidad en los datos." if idioma=="Español" else "📐 **ASYMMETRIC Dataset Justification:** The pronounced skewness (>1.0) in 'Depression Score' demonstrates a skewed dataset. This methodologically forced us to discard simple parametric models and opt for Tree Ensembles (XGBoost), which do not assume data normality.")
 
         st.markdown("---")
-        col_box, col_scat = st.columns(2)
         
-        with col_box:
-            fig_box = px.box(df, y="depression_score", title="Detección de Outliers (Boxplot)" if idioma=="Español" else "Outlier Detection (Boxplot)", color_discrete_sequence=['#4CAF50'])
-            fig_box.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
-            fig_box.update_xaxes(fixedrange=True)
-            fig_box.update_yaxes(fixedrange=True)
-            st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
-            st.caption("🔍 **Interpretación:** Los puntos aislados por encima de la media geométrica representan casos clínicos extremos (Outliers). Estos son los alumnos que los modelos no lineales deben detectar con máxima prioridad." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the geometric mean represent extreme clinical cases (Outliers). These are the students that non-linear models must detect with highest priority.")
+        # INYECCIÓN: ACTUALIZACIÓN DE GRÁFICOS (BOXPLOT MULTIVARIABLE Y SCATTER CON MARGINALES)
+        st.subheader("Distribución Multivariable y Detección de Outliers" if idioma=="Español" else "Multivariate Distribution and Outlier Detection")
+        
+        # Preparar data derretida para mostrar todas las variables como en Hantavirus
+        df_melted = df.melt(value_vars=cols_clave, var_name='VariableOriginal', value_name='Valor')
+        df_melted['Variable'] = df_melted['VariableOriginal'].map(lambda x: T[idioma]['var_nombres'][x])
+        
+        fig_box = px.box(df_melted, x='Variable', y='Valor', color='Variable')
+        fig_box.update_layout(height=450, margin=dict(l=10, r=10, t=30, b=10), showlegend=False, dragmode=False)
+        fig_box.update_xaxes(fixedrange=True)
+        fig_box.update_yaxes(fixedrange=True)
+        st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
+        st.caption("🔍 **Interpretación:** Los puntos aislados por encima de las cajas representan casos clínicos extremos (Outliers). Estos son los alumnos que los modelos no lineales deben detectar con máxima prioridad sin confundirse con el ruido." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the boxes represent extreme clinical cases (Outliers). These are the students that non-linear models must detect with highest priority without getting confused by noise.")
             
-        with col_scat:
-            df_sample = df.sample(n=5000, random_state=42) if len(df) > 5000 else df
-            fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", 
-                                  title="Dispersión: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Dispersion: Screen Time vs Anxiety",
-                                  opacity=0.6, color_discrete_sequence=['#2196F3'])
-            fig_scat.update_layout(height=400, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
-            fig_scat.update_xaxes(fixedrange=True)
-            fig_scat.update_yaxes(fixedrange=True)
-            st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
-            st.caption("🔍 **Interpretación:** Patrón bivariado que evidencia cómo la densidad poblacional de alumnos con ansiedad crítica se aglomera fuertemente hacia los ejes de hiper-conectividad (>6 horas de pantalla)." if idioma=="Español" else "🔍 **Interpretation:** Bivariate pattern showing how the density of students with critical anxiety heavily clusters towards hyper-connectivity axes (>6 screen hours).")
+        st.markdown("---")
+        st.subheader("Dispersión Bivariada: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Bivariate Dispersion: Screen Time vs Anxiety")
+        
+        df_sample = df.sample(n=5000, random_state=42) if len(df) > 5000 else df
+        # Scatter mejorado: Menos opacidad y adición de gráficos marginales para justificar datos discretos
+        fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", 
+                              opacity=0.2, color_discrete_sequence=['#2196F3'],
+                              marginal_x="histogram", marginal_y="box")
+        fig_scat.update_layout(height=450, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
+        fig_scat.update_xaxes(fixedrange=True, title=T[idioma]['var_nombres']['screen_time_hours'])
+        fig_scat.update_yaxes(fixedrange=True, title=T[idioma]['var_nombres']['anxiety_score'])
+        st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
+        
+        if idioma == "Español":
+            st.caption("🔍 **Interpretación de Geometría Discreta (Overplotting):** A diferencia de las variables climáticas (que son continuas), los tests psicométricos y horas producen variables **discretas** (números enteros). Esto crea un efecto visual de 'rejilla' o apilamiento. Los gráficos marginales (histograma y caja lateral) revelan la verdadera densidad de casos agrupados en altos niveles de ansiedad debido a la hiperconectividad.")
+        else:
+            st.caption("🔍 **Discrete Geometry Interpretation (Overplotting):** Unlike climatic continuous variables, psychometric tests produce **discrete** variables (integers). This creates a 'grid' visual effect. The marginal plots (histogram and side box) reveal the true density of cases clustered at high anxiety levels due to hyperconnectivity.")
                 
     except FileNotFoundError:
         st.error("🚨 Error crítico: No se localizó el archivo 'student_mental_health_burnout.csv'.")
@@ -343,7 +366,7 @@ elif opcion == "3":
     st.title("📈 3. Evaluation (Métricas)")
     st.info("Fase de Evaluación de CRISP-DM: Validación de la capacidad del modelo para generalizar usando validación cruzada (K-Fold)." if idioma=="Español" else "CRISP-DM Evaluation Phase: Validating model's generalization capacity using Cross-Validation (K-Fold).")
     
-    # ------------------ TABLA COMPARATIVA DE MODELOS SIN DEPENDENCIAS EXTERNAS ------------------
+    # ------------------ INYECCIÓN: TABLA COMPARATIVA DE MODELOS (REQUISITO ACADÉMICO) ------------------
     st.subheader("📊 Resumen Comparativo de Rendimiento Predictivo" if idioma == "Español" else "📊 Comparative Predictive Performance Summary")
     
     metricas_data = {
@@ -542,7 +565,7 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
-        # Bloqueo del Radar
+        # Bloqueo del Radar sin usar fixedrange
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")

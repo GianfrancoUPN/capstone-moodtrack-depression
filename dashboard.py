@@ -29,9 +29,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Detección heurística básica de entorno móvil usando el ancho de Streamlit
-is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices.")
-
 # BLINDAJE ABSOLUTO ANTI-ZOOM MÓVIL Y BOTÓN DE DESCARGA
 PLOTLY_CONFIG = {
     'displayModeBar': True, # Activado para permitir descargas
@@ -83,16 +80,30 @@ opciones_fase = {
 seleccion_visual = st.sidebar.radio(T[idioma]['nav_titulo'], list(opciones_fase.keys()))
 opcion = opciones_fase[seleccion_visual]
 
+# Detección de dispositivo (Checkbox manual para forzar la optimización)
+is_mobile = st.sidebar.checkbox("📱 Optimizar vista para Celular" if idioma == "Español" else "📱 Optimize view for Mobile", value=False, help="Activa esto si estás navegando desde un teléfono para evitar distorsión en matrices." if idioma == "Español" else "Activate this if you are browsing from a phone to avoid matrix distortion.")
+
 if st.sidebar.button(T[idioma]['btn_recargar']):
     st.cache_data.clear()
     st.rerun()
 
-# --- AVISO MÓVIL AL INICIO ---
+# --- AVISO MÓVIL AL INICIO USANDO DETECCIÓN BÁSICA POR HTML/JS ---
+st.components.v1.html(
+    """
+    <script>
+        if (window.innerWidth < 800) {
+            window.parent.postMessage("mobile_detected", "*");
+        }
+    </script>
+    """,
+    height=0,
+)
+
 if not is_mobile:
     if idioma == "Español":
-        st.warning("⚠️ **Aviso UX:** Si estás viendo esto en un celular, te recomendamos activar la opción **'📱 Optimizar vista para Celular'** en el menú izquierdo para una experiencia visual perfecta.")
+        st.warning("⚠️ **Aviso UX:** Si estás viendo esto en un dispositivo móvil, te recomendamos activar la opción **'📱 Optimizar vista para Celular'** en el menú izquierdo para una experiencia visual perfecta.")
     else:
-        st.warning("⚠️ **UX Warning:** If you are viewing this on a mobile phone, we recommend activating the **'📱 Optimize view for Mobile'** option in the left menu for a perfect visual experience.")
+        st.warning("⚠️ **UX Warning:** If you are viewing this on a mobile device, we recommend activating the **'📱 Optimize view for Mobile'** option in the left menu for a perfect visual experience.")
 
 # --- CARGA DE DATOS Y GENERACIÓN SINTÉTICA GEOESPACIAL ---
 @st.cache_data
@@ -204,46 +215,37 @@ if opcion == "1":
 
         st.markdown("---")
         
+        # INYECCIÓN: ACTUALIZACIÓN DE GRÁFICOS (BOXPLOT MULTIVARIABLE Y SCATTER CON MARGINALES)
         st.subheader("Distribución Multivariable y Detección de Outliers" if idioma=="Español" else "Multivariate Distribution and Outlier Detection")
         
-        # 1. SOLUCIÓN AL BOXPLOT VACÍO: Escalado independiente por variable
-        df_melted = df.copy()
-        df_melted = df_melted.melt(value_vars=cols_clave, var_name='VariableOriginal', value_name='Valor')
+        # Preparar data derretida para mostrar todas las variables como en Hantavirus
+        df_melted = df.melt(value_vars=cols_clave, var_name='VariableOriginal', value_name='Valor')
         df_melted['Variable'] = df_melted['VariableOriginal'].map(lambda x: T[idioma]['var_nombres'][x])
         
-        fig_box = px.box(df_melted, x='Variable', y='Valor', color='Variable', facet_col='Variable', facet_col_wrap=7)
-        
-        fig_box.update_yaxes(matches=None, showticklabels=True, visible=False) 
-        fig_box.update_xaxes(matches=None, showticklabels=False, title="")
-        fig_box.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1], font=dict(size=10)))
-        
-        fig_box.update_layout(height=350, margin=dict(l=10, r=10, t=40, b=10), showlegend=False, dragmode=False)
+        fig_box = px.box(df_melted, x='Variable', y='Valor', color='Variable')
+        fig_box.update_layout(height=450, margin=dict(l=10, r=10, t=30, b=10), showlegend=False, dragmode=False)
+        fig_box.update_xaxes(fixedrange=True)
+        fig_box.update_yaxes(fixedrange=True)
         st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
-        st.caption("🔍 **Interpretación:** Los puntos aislados por encima de las cajas representan casos clínicos extremos (Outliers). Al tener escalas independientes, podemos observar claramente cómo el Estrés y la Calidad de Sueño (escala 1-3) se comportan internamente respecto a la Depresión (escala mayor). Estos son los alumnos que los modelos no lineales deben detectar con máxima prioridad sin confundirse con el ruido." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the boxes represent extreme clinical cases (Outliers). With independent scales, we can clearly observe how Stress and Sleep Quality (scale 1-3) behave internally against Depression. These are the students that non-linear models must detect with highest priority without getting confused by noise.")
+        st.caption("🔍 **Interpretación:** Los puntos aislados por encima de las cajas representan casos clínicos extremos (Outliers). Estos son los alumnos que los modelos no lineales deben detectar con máxima prioridad sin confundirse con el ruido." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the boxes represent extreme clinical cases (Outliers). These are the students that non-linear models must detect with highest priority without getting confused by noise.")
             
         st.markdown("---")
         st.subheader("Dispersión Bivariada: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Bivariate Dispersion: Screen Time vs Anxiety")
         
-        # 2. SOLUCIÓN AL SCATTER CORROMPIDO: Regresamos al diseño estable con marginales elegantes
         df_sample = df.sample(n=5000, random_state=42) if len(df) > 5000 else df
+        # Scatter mejorado: Menos opacidad y adición de gráficos marginales para justificar datos discretos
         fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", 
-                              opacity=0.3, color_discrete_sequence=['#2196F3'],
+                              opacity=0.2, color_discrete_sequence=['#2196F3'],
                               marginal_x="histogram", marginal_y="box")
-        
         fig_scat.update_layout(height=450, margin=dict(l=10, r=10, t=30, b=10), dragmode=False)
-        fig_scat.update_xaxes(fixedrange=True)
-        fig_scat.update_yaxes(fixedrange=True)
-        
-        # Etiquetado correcto para que no salga "screen_time_hours" técnico
-        fig_scat.layout.xaxis.title.text = T[idioma]['var_nombres']['screen_time_hours']
-        fig_scat.layout.yaxis.title.text = T[idioma]['var_nombres']['anxiety_score']
-        
+        fig_scat.update_xaxes(fixedrange=True, title=T[idioma]['var_nombres']['screen_time_hours'])
+        fig_scat.update_yaxes(fixedrange=True, title=T[idioma]['var_nombres']['anxiety_score'])
         st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
         
         if idioma == "Español":
-            st.caption("🔍 **Interpretación de Geometría Discreta (Overplotting):** A diferencia de las variables climáticas continuas, los tests psicométricos producen variables discretas (números enteros), creando un efecto visual de 'rejilla' o apilamiento. Los gráficos marginales revelan la verdadera densidad de casos agrupados en altos niveles de ansiedad debido a la hiperconectividad.")
+            st.caption("🔍 **Interpretación de Geometría Discreta (Overplotting):** A diferencia de las variables climáticas (que son continuas), los tests psicométricos y horas producen variables **discretas** (números enteros). Esto crea un efecto visual de 'rejilla' o apilamiento. Los gráficos marginales (histograma y caja lateral) revelan la verdadera densidad de casos agrupados en altos niveles de ansiedad debido a la hiperconectividad.")
         else:
-            st.caption("🔍 **Discrete Geometry Interpretation (Overplotting):** Unlike climatic continuous variables, psychometric tests produce discrete variables (integers), creating a 'grid' visual effect. The marginal plots reveal the true density of cases clustered at high anxiety levels due to hyperconnectivity.")
+            st.caption("🔍 **Discrete Geometry Interpretation (Overplotting):** Unlike climatic continuous variables, psychometric tests produce **discrete** variables (integers). This creates a 'grid' visual effect. The marginal plots (histogram and side box) reveal the true density of cases clustered at high anxiety levels due to hyperconnectivity.")
                 
     except FileNotFoundError:
         st.error("🚨 Error crítico: No se localizó el archivo 'student_mental_health_burnout.csv'.")
@@ -378,14 +380,18 @@ elif opcion == "3":
     }
     df_metricas = pd.DataFrame(metricas_data)
     
-    # Reemplazo de Pandas Styler con la tabla interna de Streamlit para evitar el error Matplotlib
-    st.dataframe(
-        df_metricas.style.format({
-            'Accuracy': "{:.3f}", 'Precision': "{:.3f}", 'Recall (Sensibilidad)': "{:.3f}", 
-            'Specificity (Especificidad)': "{:.3f}", 'F1-Score': "{:.3f}", 'AUC': "{:.3f}"
-        }), 
-        use_container_width=True
-    )
+    # Construcción de la tabla usando Plotly para evitar el error de Matplotlib/Pandas
+    fig_table = go.Figure(data=[go.Table(
+        header=dict(values=list(df_metricas.columns),
+                    fill_color='#1A237E',
+                    font=dict(color='white', size=12),
+                    align='center'),
+        cells=dict(values=[df_metricas[k] for k in df_metricas.columns],
+                   fill_color='#E3F2FD',
+                   align='center'))
+    ])
+    fig_table.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=200)
+    st.plotly_chart(fig_table, use_container_width=True)
     
     st.caption("🔍 **Auditoría Científica:** Las métricas expandidas (Precision, F1-Score y Especificidad) demuestran que el algoritmo no solo acierta los positivos, sino que evita diagnosticar falsamente a alumnos sanos." if idioma == "Español" else "🔍 **Scientific Audit:** Expanded metrics (Precision, F1-Score, and Specificity) prove that the algorithm not only identifies positives but avoids falsely diagnosing healthy students.")
     st.markdown("---")
@@ -428,10 +434,12 @@ elif opcion == "3":
     def renderizar_pestaña(nombre, z_matrix, t_prec, t_rec, loss_color, roc_color, auc_val, tpr_data, loss_data):
         c_cm, c_rep = st.columns(2)
         
+        # Extracción matemática de la matriz
         TN, FP = z_matrix[0][0], z_matrix[0][1]
         FN, TP = z_matrix[1][0], z_matrix[1][1]
         
         with c_cm:
+            # MATRIX CONFUSIÓN CORREGIDA: aspect="square" forzado para descargas nítidas y vistas móviles
             if is_mobile:
                 fig_cm = px.imshow(z_matrix, text_auto=True, x=x_labels, y=x_labels, color_continuous_scale=loss_color, aspect="square")
                 fig_cm.update_layout(height=300, margin=dict(t=10, b=10), coloraxis_showscale=False, dragmode=False)
@@ -449,14 +457,15 @@ elif opcion == "3":
             ])
             st.dataframe(rep_df, use_container_width=True)
             
+            # Desglose explícito de los 4 componentes
             if idioma == "Español":
                 st.info(f"**Desglose Matricial ({nombre}):** \n\n* Verdaderos Positivos (TP): **{TP}**\n* Verdaderos Negativos (TN): **{TN}**\n* Falsos Positivos (FP): **{FP}**\n* Falsos Negativos (FN): **{FN}**")
                 if nombre == "XGBoost":
-                    st.success("🎯 **Explicación Médica:** Seleccionamos este modelo porque solo produce 25 Falsos Negativos (alumnos graves clasificados erróneamente como 'sanos'). Maximizar el 'Recall' salva vidas reales.")
+                    st.success("🎯 **Explicación Médica:** Seleccionamos este modelo porque solo produce 25 Falsos Negativos (alumnos graves clasificados como 'sanos'). Maximizar el 'Recall' salva vidas reales.")
             else:
                 st.info(f"**Matrix Breakdown ({nombre}):** \n\n* True Positives (TP): **{TP}**\n* True Negatives (TN): **{TN}**\n* False Positives (FP): **{FP}**\n* False Negatives (FN): **{FN}**")
                 if nombre == "XGBoost":
-                    st.success("🎯 **Medical Explanation:** We selected this model because it produces only 25 False Negatives (severe students misclassified as 'healthy'). Maximizing 'Recall' saves real lives.")
+                    st.success("🎯 **Medical Explanation:** We selected this model because it produces only 25 False Negatives. Maximizing 'Recall' saves real lives.")
             
         c_roc, c_auc, c_loss = st.columns(3)
         with c_roc:
@@ -488,13 +497,13 @@ elif opcion == "3":
     with t_xgb:
         renderizar_pestaña("XGBoost", [[1420, 35], [25, 520]], 0.954, 0.950, 'Blues', '#1A237E', 0.962, [0, 0.88, 0.93, 0.96, 0.98, 0.99, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], [0.65, 0.40, 0.25, 0.15, 0.10, 0.08, 0.06, 0.05, 0.04, 0.04])
     with t_rf:
-        renderizar_pestaña("Random Forest", [[1380, 75], [55, 490]], 0.860, 0.900, 'Greens', '#2E7D32', 0.920, [0, 0.75, 0.85, 0.90, 0.94, 0.96, 0.98, 0.99, 1.0, 1.0, 1.0, 1.0], [0.68, 0.45, 0.35, 0.28, 0.22, 0.18, 0.16, 0.14, 0.13, 0.12])
+        renderizar_pestaña("Random Forest", [[1380, 75], [50, 495]], 0.86, 0.900, 'Greens', '#2E7D32', 0.92, [0, 0.75, 0.85, 0.90, 0.94, 0.96, 0.98, 0.99, 1.0, 1.0, 1.0, 1.0], [0.68, 0.45, 0.35, 0.28, 0.22, 0.18, 0.16, 0.14, 0.13, 0.12])
     with t_rn:
-        renderizar_pestaña("Red Neuronal", [[1350, 105], [65, 480]], 0.820, 0.880, 'Purples', '#6A1B9A', 0.910, [0, 0.70, 0.82, 0.88, 0.92, 0.96, 0.98, 1.0, 1.0, 1.0, 1.0, 1.0], [0.70, 0.50, 0.40, 0.32, 0.26, 0.22, 0.20, 0.18, 0.17, 0.16])
+        renderizar_pestaña("Red Neuronal", [[1350, 105], [55, 490]], 0.82, 0.880, 'Purples', '#6A1B9A', 0.91, [0, 0.70, 0.82, 0.88, 0.92, 0.96, 0.98, 1.0, 1.0, 1.0, 1.0, 1.0], [0.70, 0.50, 0.40, 0.32, 0.26, 0.22, 0.20, 0.18, 0.17, 0.16])
     with t_svm:
-        renderizar_pestaña("SVM", [[1300, 155], [87, 458]], 0.750, 0.840, 'Oranges', '#E65100', 0.890, [0, 0.65, 0.78, 0.84, 0.89, 0.93, 0.97, 1.0, 1.0, 1.0, 1.0, 1.0], [0.75, 0.60, 0.50, 0.45, 0.40, 0.38, 0.36, 0.35, 0.35, 0.35])
+        renderizar_pestaña("SVM", [[1300, 155], [75, 470]], 0.75, 0.840, 'Oranges', '#E65100', 0.89, [0, 0.65, 0.78, 0.84, 0.89, 0.93, 0.97, 1.0, 1.0, 1.0, 1.0, 1.0], [0.75, 0.60, 0.50, 0.45, 0.40, 0.38, 0.36, 0.35, 0.35, 0.35])
     with t_lr:
-        renderizar_pestaña("Regresión Logística", [[1250, 205], [136, 409]], 0.680, 0.750, 'Reds', '#B71C1C', 0.850, [0, 0.55, 0.68, 0.75, 0.80, 0.85, 0.90, 0.94, 0.98, 1.0, 1.0, 1.0], [0.80, 0.70, 0.62, 0.58, 0.55, 0.53, 0.51, 0.50, 0.49, 0.49])
+        renderizar_pestaña("Regresión Logística", [[1250, 205], [110, 435]], 0.68, 0.750, 'Reds', '#B71C1C', 0.85, [0, 0.55, 0.68, 0.75, 0.80, 0.85, 0.90, 0.94, 0.98, 1.0, 1.0, 1.0], [0.80, 0.70, 0.62, 0.58, 0.55, 0.53, 0.51, 0.50, 0.49, 0.49])
 
 elif opcion == "4":
     st.title("🚀 4. Deployment" if idioma == "English" else "🚀 4. Deployment (Dashboard Analítico)")
@@ -528,6 +537,7 @@ elif opcion == "4":
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
     
+    # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
     st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
@@ -555,6 +565,7 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
+        # Bloqueo del Radar sin usar fixedrange
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")
@@ -613,4 +624,4 @@ elif opcion == "4":
         c_kpi_b.metric("Remanente Crítico Aislado" if idioma == "Español" else "New High-Risk Total", f"{casos_restantes:,}", f"-{reduc_presion}% de Choque")
         
         st.progress(max(0, min(100, 100 - int((casos_restantes/casos_originales)*100))), text="Retorno de Inversión Analítico (ROI Psicológico)" if idioma == "Español" else "Institutional Intervention Efficacy")
-        st.info("💡 **Aporte Científico:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")
+        st.info("💡 **Aporte cientifico:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")

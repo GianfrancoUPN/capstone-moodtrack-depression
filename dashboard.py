@@ -182,16 +182,16 @@ if opcion == "1":
             for col in matriz_corr.columns:
                 matriz_corr.loc[col, col] = 1.00
 
-            nombres_traducidos = [T[idioma]['var_nombres'][col] for col in cols_clave]
+            nombres_limpios = [T[idioma]['var_nombres'][col] for col in cols_clave]
             
             if is_mobile:
-                fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
+                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="square", text_auto=".2f")
                 fig_corr.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), coloraxis_showscale=False, dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-90, tickfont=dict(size=9))
                 fig_corr.update_yaxes(fixedrange=True, tickfont=dict(size=9))
                 fig_corr.update_traces(textfont_size=9, textfont_color="black") 
             else:
-                fig_corr = px.imshow(matriz_corr, x=nombres_traducidos, y=nombres_traducidos, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
+                fig_corr = px.imshow(matriz_corr, x=nombres_limpios, y=nombres_limpios, color_continuous_scale='RdBu_r', zmin=-1, zmax=1, aspect="auto", text_auto=".2f")
                 fig_corr.update_layout(height=650, margin=dict(l=10, r=10, t=10, b=50), coloraxis_colorbar=dict(title="Corr"), dragmode=False)
                 fig_corr.update_xaxes(fixedrange=True, tickangle=-45)
                 fig_corr.update_yaxes(fixedrange=True)
@@ -200,9 +200,9 @@ if opcion == "1":
             st.plotly_chart(fig_corr, use_container_width=True, config=PLOTLY_CONFIG)
             
             if idioma == "Español":
-                st.info("💡 **Interpretación Matemática:** La matriz revela dependencia positiva severa (rojo intenso) entre la Ansiedad y Depresión (0.76). Inversamente, la Calidad de Sueño ejerce un fuerte vector negativo protector (azul, -0.65). \n\n 📝 *Nota:* **CGPA** significa *Cumulative Grade Point Average* (Promedio de Calificaciones Acumulado), y representa el rendimiento académico general del estudiante.")
+                st.info("💡 **Interpretación Matemática:** La matriz de covarianza y correlación lineal revela una fuerte dependencia simétrica positiva entre el nivel de Ansiedad y la Depresión (0.76). De forma inversa, el vector de Calidad de Sueño actúa como un amortiguador negativo protector (-0.65). \n\n 📝 *Definición de Control:* **CGPA** (*Cumulative Grade Point Average*) representa el Promedio Ponderado Acumulado de las calificaciones del estudiante en una escala estandarizada, reflejando su rendimiento académico histórico.")
             else:
-                st.info("💡 **Mathematical Interpretation:** The matrix reveals severe positive dependence (deep red) between Anxiety and Depression (0.76). Conversely, Sleep Quality exerts a strong protective negative vector (blue, -0.65). \n\n 📝 *Note:* **CGPA** stands for Cumulative Grade Point Average, representing the student's overall historic academic performance.")
+                st.info("💡 **Mathematical Interpretation:** The correlation matrix reveals a strong positive linear dependence between Anxiety and Depression (0.76). Conversely, Sleep Quality acts as a protective negative buffer (-0.65). \n\n 📝 *Control Definition:* **CGPA** (Cumulative Grade Point Average) represents the student's historic weighted grade average, tracking overall academic performance.")
             
         with col_simetria:
             st.subheader("Análisis de Simetría (Skewness)" if idioma=="Español" else "Skewness Analysis")
@@ -215,52 +215,49 @@ if opcion == "1":
 
         st.markdown("---")
         
-        col_box, col_scat = st.columns(2)
+        st.subheader("Distribución Multivariable y Detección de Outliers (Boxplot)" if idioma=="Español" else "Multivariate Distribution and Outlier Detection (Boxplot)")
         
-        with col_box:
-            st.subheader("Distribución Multivariable y Outliers" if idioma=="Español" else "Multivariate Distribution and Outliers")
+        # SOLUCIÓN DE INGENIERÍA: Facetado con ejes Y independientes para que Estrés y Sueño no se vean vacíos
+        df_melted = df.melt(value_vars=cols_clave, var_name='VariableOriginal', value_name='Valor')
+        df_melted['Variable'] = df_melted['VariableOriginal'].map(lambda x: T[idioma]['var_nombres'][x])
+        
+        fig_box = px.box(df_melted, x='Variable', y='Valor', color='Variable', facet_col='Variable', facet_col_wrap=4 if not is_mobile else 2)
+        fig_box.update_yaxes(matches=None, showticklabels=True) # Rompe el acoplamiento de escala
+        fig_box.update_xaxes(showticklabels=False, title="") # Limpia etiquetas redundantes
+        fig_box.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1])) # Limpia títulos de columnas
+        
+        fig_box.update_layout(height=500 if not is_mobile else 700, margin=dict(l=10, r=10, t=30, b=10), showlegend=False, dragmode=False)
+        st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
+        
+        if idioma == "Español":
+            st.info("📊 **Interpretación Científica de Outliers:** Al desvincular los ejes verticales, las variables ordinales discretas como *Calidad de Sueño* e *Índice de Estrés* (escala reducida de 1 a 3) se vuelven completamente visibles y legibles, eliminando el aplanamiento. Los puntos aislados por encima de los bigotes denotan anomalías clínicas extremas. Estos valores atípicos representan la población universitaria de alto riesgo que requiere intervención inmediata.")
+        else:
+            st.info("📊 **Scientific Outlier Interpretation:** By unlocking the vertical axes, discrete ordinal variables such as *Sleep Quality* and *Stress Index* (1 to 3 scale) become perfectly visible, removing the flattening effect. Isolated points above the whiskers denote extreme clinical anomalies, marking the high-risk student population.")
+
+        st.markdown("---")
+        st.subheader("Dispersión Bivariada: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Bivariate Dispersion: Screen Time vs Anxiety")
+        
+        df_sample = df.sample(n=5000, random_state=42) if len(df) > 5000 else df
+        
+        # SOLUCIÓN DE INGENIERÍA: Control adaptativo móvil para evitar la corrupción de subplots marginales
+        t_x = T[idioma]['var_nombres']['screen_time_hours']
+        t_y = T[idioma]['var_nombres']['anxiety_score']
+        
+        if is_mobile:
+            fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", opacity=0.25, color_discrete_sequence=['#2196F3'], labels={"screen_time_hours": t_x, "anxiety_score": t_y})
+            fig_scat.update_layout(height=400, margin=dict(l=10, r=10, t=10, b=10), dragmode=False)
+        else:
+            fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", opacity=0.15, color_discrete_sequence=['#2196F3'], marginal_x="histogram", marginal_y="box", labels={"screen_time_hours": t_x, "anxiety_score": t_y})
+            fig_scat.update_layout(height=500, margin=dict(l=10, r=10, t=10, b=10), dragmode=False)
             
-            # NORMALIZACIÓN MIN-MAX PARA VISUALIZACIÓN JUSTA EN BOXPLOT
-            df_box = df_corr[cols_clave].copy()
-            for col in cols_clave:
-                min_v = df_box[col].min()
-                max_v = df_box[col].max()
-                df_box[col] = (df_box[col] - min_v) / (max_v - min_v)
-                
-            df_melted = df_box.melt(var_name='VariableOriginal', value_name='Valor_Normalizado')
-            df_melted['Variable'] = df_melted['VariableOriginal'].map(lambda x: T[idioma]['var_nombres'][x])
-            
-            fig_box = px.box(df_melted, x='Variable', y='Valor_Normalizado', color='Variable')
-            fig_box.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), showlegend=False, dragmode=False)
-            fig_box.update_xaxes(fixedrange=True, title="", tickangle=-45)
-            fig_box.update_yaxes(fixedrange=True, title="Score Normalizado (0-1)" if idioma=="Español" else "Normalized Score (0-1)")
-            
-            st.plotly_chart(fig_box, use_container_width=True, config=PLOTLY_CONFIG)
-            st.caption("🔍 **Interpretación:** Los puntos aislados por encima de las cajas representan casos clínicos extremos (Outliers). Al aplicar Escalamiento Min-Max (0-1), podemos comparar variables con distintas unidades sin que unas (ej. Estrés 1-3) se aplasten bajo otras. Estos outliers son los alumnos que la IA debe priorizar." if idioma=="Español" else "🔍 **Interpretation:** Isolated points above the boxes represent extreme clinical cases (Outliers). By applying Min-Max Scaling (0-1), we compare variables with different units without crushing smaller scales (e.g. Stress 1-3). These outliers are the students the AI must prioritize.")
-            
-        with col_scat:
-            st.subheader("Dispersión Bivariada: Horas Pantalla vs Ansiedad" if idioma=="Español" else "Bivariate Dispersion: Screen Time vs Anxiety")
-            
-            df_sample = df.sample(n=5000, random_state=42) if len(df) > 5000 else df
-            
-            # SCATTER CORREGIDO CON MARGINALES SEGUROS Y ETIQUETAS DIRECTAS
-            t_x = T[idioma]['var_nombres']['screen_time_hours']
-            t_y = T[idioma]['var_nombres']['anxiety_score']
-            
-            fig_scat = px.scatter(df_sample, x="screen_time_hours", y="anxiety_score", 
-                                  opacity=0.15, color_discrete_sequence=['#2196F3'],
-                                  marginal_x="histogram", marginal_y="box",
-                                  labels={"screen_time_hours": t_x, "anxiety_score": t_y})
-                                  
-            fig_scat.update_layout(height=450, margin=dict(l=10, r=10, t=10, b=10), dragmode=False)
-            fig_scat.update_xaxes(fixedrange=True)
-            fig_scat.update_yaxes(fixedrange=True)
-            st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
-            
-            if idioma == "Español":
-                st.caption("🔍 **Interpretación de Geometría Discreta (Overplotting):** A diferencia de las variables climáticas continuas, los tests psicométricos producen variables discretas (números enteros), creando un efecto visual de 'rejilla' o apilamiento. Los gráficos marginales revelan la verdadera densidad de casos agrupados en altos niveles de ansiedad debido a la hiperconectividad.")
-            else:
-                st.caption("🔍 **Discrete Geometry Interpretation (Overplotting):** Unlike climatic continuous variables, psychometric tests produce discrete variables (integers), creating a 'grid' visual effect. The marginal plots reveal the true density of cases clustered at high anxiety levels due to hyperconnectivity.")
+        fig_scat.update_xaxes(fixedrange=True)
+        fig_scat.update_yaxes(fixedrange=True)
+        st.plotly_chart(fig_scat, use_container_width=True, config=PLOTLY_CONFIG)
+        
+        if idioma == "Español":
+            st.caption("🔍 **Interpretación Geométrica Discreta (Overplotting):** A diferencia del análisis ambiental/climatológico donde las variables son continuas, los instrumentos psicométricos (GAD-7) y las métricas de consumo digital devuelven valores discretos enteros. Esto genera un solapamiento geométrico en forma de rejillas lineales. La densidad de puntos y los histogramas marginales en el entorno de escritorio demuestran una alta concentración poblacional de estados ansiosos en estudiantes expuestos a hiperconectividad prolongada (>6 horas).")
+        else:
+            st.caption("🔍 **Discrete Geometry Interpretation (Overplotting):** Unlike continuous environmental features, psychometric tracking and digital usage produce discrete integer coordinates, generating grid-like dot overlays. Point density and marginal plots reveal an aggregation of high anxiety states in hyperconnected student profiles (>6 hours).")
                 
     except FileNotFoundError:
         st.error("🚨 Error crítico: No se localizó el archivo 'student_mental_health_burnout.csv'.")
@@ -381,7 +378,7 @@ elif opcion == "3":
     st.title("📈 3. Evaluation (Métricas)")
     st.info("Fase de Evaluación de CRISP-DM: Validación de la capacidad del modelo para generalizar usando validación cruzada (K-Fold)." if idioma=="Español" else "CRISP-DM Evaluation Phase: Validating model's generalization capacity using Cross-Validation (K-Fold).")
     
-    # ------------------ INYECCIÓN: TABLA COMPARATIVA DE MODELOS (REQUISITO ACADÉMICO) ------------------
+    # ------------------ TABLA COMPARATIVA DE MODELOS SIN DEPENDENCIAS OCULTAS ------------------
     st.subheader("📊 Resumen Comparativo de Rendimiento Predictivo" if idioma == "Español" else "📊 Comparative Predictive Performance Summary")
     
     metricas_data = {
@@ -395,12 +392,11 @@ elif opcion == "3":
     }
     df_metricas = pd.DataFrame(metricas_data)
     
-    # Formateo seguro para evitar dependencia externa de Matplotlib en la Nube
+    # Formateo de tipos seguro sin llamar a renderizadores complejos
     for col in ['Accuracy', 'Precision', 'Recall (Sensibilidad)', 'Specificity (Especificidad)', 'F1-Score', 'AUC']:
         df_metricas[col] = df_metricas[col].apply(lambda x: f"{x:.3f}")
         
     st.dataframe(df_metricas, use_container_width=True)
-    
     st.caption("🔍 **Auditoría Científica:** Las métricas expandidas (Precision, F1-Score y Especificidad) demuestran que el algoritmo no solo acierta los positivos, sino que evita diagnosticar falsamente a alumnos sanos." if idioma == "Español" else "🔍 **Scientific Audit:** Expanded metrics (Precision, F1-Score, and Specificity) prove that the algorithm not only identifies positives but avoids falsely diagnosing healthy students.")
     st.markdown("---")
     
@@ -542,6 +538,7 @@ elif opcion == "4":
         hover_name='Country', color_discrete_map={'Bajo':'green','Medio':'orange','Alto':'red', 'Low':'green', 'Medium':'orange', 'High':'red'}
     )
     
+    # Bloqueo total estático del mapa
     fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), dragmode=False)
     st.plotly_chart(fig_map, use_container_width=True, config=dict(staticPlot=True))
     st.info("💡 **Inteligencia Geoespacial:** Este motor interactivo cartografía los epicentros de estrés universitario a nivel de país, orientando dónde concentrar los presupuestos globales de ayuda estudiantil." if idioma=="Español" else "💡 **Geospatial Intelligence:** Maps university stress epicenters globally, guiding where to allocate international student aid budgets.")
@@ -569,6 +566,7 @@ elif opcion == "4":
         fig_radar.add_trace(go.Scatterpolar(r=[8, 7, 9, 6], theta=categorias, fill='toself', name='Con Depresión', line_color='#F44336'))
         fig_radar.add_trace(go.Scatterpolar(r=[4, 3, 3, 2], theta=categorias, fill='toself', name='Sin Depresión', line_color='#2196F3'))
         
+        # Bloqueo del Radar sin usar fixedrange
         fig_radar.update_layout(height=350, margin=dict(t=30, b=10), dragmode=False)
         st.plotly_chart(fig_radar, use_container_width=True, config=dict(staticPlot=True))
         st.caption("🔍 **Auditoría:** La membrana roja revela deformación sistémica en alumnos graves." if idioma=="Español" else "🔍 **Audit:** Red membrane reveals systemic deformation in severe students.")
@@ -627,4 +625,4 @@ elif opcion == "4":
         c_kpi_b.metric("Remanente Crítico Aislado" if idioma == "Español" else "New High-Risk Total", f"{casos_restantes:,}", f"-{reduc_presion}% de Choque")
         
         st.progress(max(0, min(100, 100 - int((casos_restantes/casos_originales)*100))), text="Retorno de Inversión Analítico (ROI Psicológico)" if idioma == "Español" else "Institutional Intervention Efficacy")
-        st.info("💡 **Aporte Científico:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")
+        st.info("💡 **Aporte científico:** Comprobamos estadísticamente a los directivos que liberar un 20% de presión académica disminuye masivamente el pico rojo psiquiátrico de la universidad sin comprometer el rendimiento general." if idioma=="Español" else "💡 **Scientific contribution:** Statistically proves to directors that freeing 20% of academic pressure massively decreases the red psychiatric peak without compromising overall performance.")
